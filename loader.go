@@ -39,14 +39,11 @@ func (l loader) load(dst interface{}, prefixes ...string) error {
 			continue
 		}
 
-		// load default value as yaml syntax
-		isBlank := reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface())
+		// check default value first
 		defaultValue := fieldStruct.Tag.Get("default")
-		if !isBlank && defaultValue != "" {
-			err := yaml.Unmarshal([]byte(defaultValue), field.Addr().Interface())
-			if err != nil {
-				return err
-			}
+		if defaultValue != "" {
+			value = defaultValue
+			source = "default"
 		}
 
 		// check shell env
@@ -55,8 +52,11 @@ func (l loader) load(dst interface{}, prefixes ...string) error {
 			if envName == "" {
 				envName = strings.ToUpper(strings.Join(append(prefixes, strcase.ToSnake(fieldStruct.Name)), "_"))
 			}
-			value = os.Getenv(envName)
-			source = "env"
+			envValue := os.Getenv(envName)
+			if envValue != "" {
+				value = envValue
+				source = "env"
+			}
 		}
 		// check secret
 		if l.Secret {
@@ -64,14 +64,17 @@ func (l loader) load(dst interface{}, prefixes ...string) error {
 			if secretName == "" {
 				secretName = strings.Join(append(prefixes, strcase.ToSnake(fieldStruct.Name)), "_")
 			}
-			value = l.getSecret(secretName)
-			source = "secret"
+			secretValue := l.getSecret(secretName)
+			if secretValue != "" {
+				value = secretValue
+				source = "secret"
+			}
 		}
 		// load value to field
-		if value != "" {
+		isBlank := reflect.DeepEqual(field.Interface(), reflect.Zero(field.Type()).Interface())
+		if isBlank && value != "" {
 			if l.Debug {
-				fmt.Printf("Loading configuration for struct `%s`'s field `%s` from %s\n",
-					configType.Name(), fieldStruct.Name, source)
+				fmt.Printf("Loading configuration field `%s` from %s\n", fieldStruct.Name, source)
 			}
 			switch reflect.Indirect(field).Kind() {
 			case reflect.Bool:
@@ -90,8 +93,8 @@ func (l loader) load(dst interface{}, prefixes ...string) error {
 			}
 		}
 
-		if isBlank && fieldStruct.Tag.Get("required") == "true" {
-			// return error if it is required but blank
+		// return error if it is required but blank
+		if isBlank && value == "" && fieldStruct.Tag.Get("required") == "true" {
 			return errors.New(fieldStruct.Name + " is required")
 		}
 
@@ -139,8 +142,10 @@ func (l loader) load(dst interface{}, prefixes ...string) error {
 
 func (l loader) getSecret(name string) string {
 	data, err := ioutil.ReadFile(path.Join(l.Path, name))
-	if err != nil && l.Debug {
-		fmt.Printf("read secret file error: %s", err)
+	if os.IsNotExist(err) {
+		return ""
+	} else if err != nil && l.Debug {
+		fmt.Printf("read secret file error: %s\n", err)
 		return ""
 	}
 	return strings.TrimSpace(string(data))

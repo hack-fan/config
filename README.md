@@ -1,4 +1,4 @@
-# config
+# Config Loader for Golang
 Load config into go struct from shell environment and docker/k8s secrets.
 
 ## Install
@@ -6,24 +6,35 @@ Load config into go struct from shell environment and docker/k8s secrets.
 go get github.com/hyacinthus/config
 ```
 
+## Features
+- [x] Load from shell environment variables
+- [x] Load from Docker/Kubernetes secrets
+- [x] Default values support
+- [x] Required check support
+- [x] Simple and easy to use, no other features
+
+## Load Order
+`Default` -> `ENV` -> `Secret` -> `Value exists in struct`
+
+Right side will overwrite left side.
+
 ## Quick Start
 ```go
 package main
 
 import (
     "fmt"
-
-	"github.com/hyacinthus/config"
+    "github.com/hyacinthus/config"
 )
 
 type Settings struct {
-	AppName string `default:"default_app"` // testing snake env APP_NAME
-	DB      struct {
-		Name     string `default:"default_name"`             // testing default
-		User     string `default:"default_user"`             // testing env
-		Password string `default:"default_pwd"`              // testing secret
-		Port     int    `default:"3306" env:"MYSQL_DB_PORT"` // testing int and custom env name
-	}
+    AppName string `default:"app"` // env APP_NAME will overwrite default value
+    DB      struct {
+        Name     string
+        User     string `required:"true"`
+        Password string `secret:"mysql_db_password"` // default secret name is 'db_password',change it use tag
+        Port     int    `default:"3306" env:"MYSQL_DB_PORT"` // default env name is 'DB_PORT',change it use tag
+    }
 }
 
 func main() {
@@ -32,3 +43,15 @@ func main() {
     fmt.Printf("%+v",settings)
 }
 ```
+
+## Name Conversion
+
+- `ENV` will use ALL_CAP_SNAKE_CASE
+- `Secret` will use snake_case
+
+## Tags
+
+- `default` set default value
+- `env` custom shell env variable names
+- `secret` custom secret file name
+- `required` set attr as required

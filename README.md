@@ -1,9 +1,9 @@
 # Config Loader for Golang
-Load config into go struct from shell environment and docker/k8s secrets.
+Load config into go struct from shell environment and docker/kubernetes secrets.
 
 ## Install
 ```shell script
-go get github.com/hyacinthus/config
+go get github.com/hack-fan/config
 ```
 
 ## Features
@@ -24,7 +24,7 @@ package main
 
 import (
     "fmt"
-    "github.com/hyacinthus/config"
+    "github.com/hack-fan/config"
 )
 
 type Settings struct {

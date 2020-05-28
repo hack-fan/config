@@ -1,4 +1,4 @@
-module github.com/hyacinthus/config
+module github.com/hack-fan/config
 
 go 1.14
 
